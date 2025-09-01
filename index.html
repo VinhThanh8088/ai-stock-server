@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Dự Báo Cổ Phiếu - Server-Powered</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #111827; color: #d1d5db; }
+        .card { background-color: #1f2937; border: 1px solid #374151; }
+        .btn-primary { background-color: #3b82f6; transition: background-color 0.3s; }
+        .btn-primary:hover { background-color: #2563eb; }
+        .btn-primary:disabled { background-color: #374151; cursor: not-allowed; }
+        .loader { border-top-color: #3498db; -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite; }
+        @-webkit-keyframes spin { 0% { -webkit-transform: rotate(0deg); } 100% { -webkit-transform: rotate(360deg); } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .buy-signal { color: #22c55e; } .sell-signal { color: #ef4444; } .hold-signal { color: #eab308; }
+    </style>
+</head>
+<body class="p-4 sm:p-6 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-white">
+                <span class="text-blue-400">AI</span> Dự Báo Cổ Phiếu Chuyên Nghiệp
+            </h1>
+            <p class="text-gray-400 mt-2">Phiên bản v3.0 - Sử dụng AI Server</p>
+        </header>
+
+        <div class="card p-6 rounded-xl shadow-lg mb-8">
+            <div class="flex flex-col sm:flex-row items-center gap-4">
+                <input type="text" id="stockSymbol" placeholder="Nhập mã bất kỳ (VD: FPT, HPG...)"
+                       class="w-full sm:w-1/3 p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase text-center font-semibold">
+                <input type="text" id="serverUrl" placeholder="Nhập địa chỉ Server của bạn"
+                       class="w-full sm:w-2/3 p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold">
+            </div>
+             <button onclick="runAnalysis()" id="analyzeButton" class="btn-primary w-full text-white font-bold py-3 px-6 rounded-lg flex items-center justify-center mt-4">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Bắt đầu Phân tích AI
+                </button>
+            <p class="text-xs text-gray-500 mt-3 text-center">Lưu ý: Sau khi triển khai server, hãy dán địa chỉ URL của nó vào ô "Địa chỉ Server".</p>
+        </div>
+
+        <div id="results" class="hidden space-y-8">
+            <div id="recommendation-card" class="card p-6 rounded-xl shadow-lg">
+                <h2 class="text-2xl font-bold text-white mb-4 text-center">⭐ KHUYẾN NGHỊ TỪ AI SERVER (<span id="recom-symbol"></span>) ⭐</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                    <div class="p-4 bg-gray-800 rounded-lg"><p class="text-sm text-gray-400">Giá đóng cửa gần nhất</p><p id="last-price" class="text-2xl font-semibold text-white"></p></div>
+                    <div class="p-4 bg-gray-800 rounded-lg"><p class="text-sm text-gray-400">Tín hiệu AI Giao Dịch (Ngày)</p><p id="ai-recommendation" class="text-2xl font-bold"></p></div>
+                    <div class="p-4 bg-gray-800 rounded-lg"><p class="text-sm text-gray-400">Dự báo ARIMA (Ngày mai)</p><p id="forecast-price" class="text-2xl font-semibold text-white"></p></div>
+                </div>
+            </div>
+            <div class="card p-6 rounded-xl shadow-lg">
+                <h2 class="text-xl font-bold text-white mb-4 text-center">CỬA SỔ 1: PHÂN TÍCH DÀI HẠN & TỔNG QUAN</h2>
+                <div class="space-y-6">
+                    <div><canvas id="longTermChart"></canvas></div>
+                    <div><canvas id="performanceChart"></canvas></div>
+                    <div><canvas id="rsiChart"></canvas></div>
+                    <div><canvas id="macdChart"></canvas></div>
+                    <div><canvas id="volumeChart"></canvas></div>
+                </div>
+            </div>
+            <div class="card p-6 rounded-xl shadow-lg">
+                <h2 class="text-xl font-bold text-white mb-4 text-center">CỬA SỔ 2: PHÂN TÍCH NGẮN HẠN & TÍN HIỆU</h2>
+                 <div><canvas id="shortTermChart"></canvas></div>
+            </div>
+        </div>
+        
+        <div id="loader" class="hidden flex flex-col items-center justify-center p-10 card rounded-xl">
+             <div class="loader ease-linear rounded-full border-8 border-t-8 border-gray-200 h-24 w-24 mb-4"></div>
+             <p id="loader-text" class="text-lg text-white">Đang gửi yêu cầu đến AI Server...</p>
+        </div>
+    </div>
+
+    <script>
+        let charts = {};
+        
+        async function runAnalysis() {
+            const symbol = document.getElementById('stockSymbol').value.toUpperCase();
+            let serverUrl = document.getElementById('serverUrl').value;
+
+            if (!symbol || !serverUrl) {
+                alert("Vui lòng nhập mã cổ phiếu và địa chỉ Server.");
+                return;
+            }
+            // Đảm bảo URL không có dấu / ở cuối
+            if (serverUrl.endsWith('/')) {
+                serverUrl = serverUrl.slice(0, -1);
+            }
+
+            const analyzeButton = document.getElementById('analyzeButton');
+            const loader = document.getElementById('loader');
+            const loaderText = document.getElementById('loader-text');
+            const resultsDiv = document.getElementById('results');
+
+            loader.classList.remove('hidden');
+            resultsDiv.classList.add('hidden');
+            analyzeButton.disabled = true;
+
+            try {
+                loaderText.innerText = `Đang liên hệ AI Server tại ${serverUrl}...`;
+                const fullApiUrl = `${serverUrl}/analyze/${symbol}`;
+                
+                const response = await fetch(fullApiUrl);
+                
+                loaderText.innerText = 'Server đã nhận. Đang huấn luyện mô hình AI... (Có thể mất 1-2 phút)';
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Lỗi từ server: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                loaderText.innerText = 'Nhận kết quả! Đang vẽ biểu đồ...';
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                displayResults(data);
+
+            } catch (error) {
+                alert(`Đã xảy ra lỗi: ${error.message}`);
+            } finally {
+                loader.classList.add('hidden');
+                analyzeButton.disabled = false;
+            }
+        }
+        
+        function displayResults(data) {
+            resultsDiv.classList.remove('hidden');
+
+            document.getElementById('recom-symbol').innerText = data.symbol;
+            document.getElementById('last-price').innerText = `${data.last_price.toLocaleString('vi-VN', { maximumFractionDigits: 0 })} VND`;
+            document.getElementById('forecast-price').innerText = data.forecast_price ? `${data.forecast_price.toLocaleString('vi-VN', { maximumFractionDigits: 0 })} VND` : 'N/A';
+            
+            const recommendationEl = document.getElementById('ai-recommendation');
+            recommendationEl.innerText = data.recommendation;
+            recommendationEl.className = "text-2xl font-bold ";
+            if (data.recommendation === "MUA") recommendationEl.classList.add('buy-signal');
+            else if (data.recommendation === "BÁN") recommendationEl.classList.add('sell-signal');
+            else recommendationEl.classList.add('hold-signal');
+            
+            drawCharts(data);
+        }
+
+        function destroyCharts() {
+            Object.values(charts).forEach(chart => { if (chart) chart.destroy(); });
+            charts = {};
+        }
+
+        function drawCharts(data) {
+            destroyCharts();
+            const { labels, datasets } = data.chart_data;
+            const symbol = data.symbol;
+            
+            const commonOptions = { /* ... giữ nguyên từ phiên bản trước ... */ };
+
+            // Code vẽ biểu đồ gần như giữ nguyên, chỉ thay đổi cách lấy dữ liệu
+            const buySignals = labels.map((label, i) => datasets.AI_Signal[i] === 1 ? {x: label, y: datasets.close[i] * 0.98} : null).filter(d => d);
+            const sellSignals = labels.map((label, i) => datasets.AI_Signal[i] === -1 ? {x: label, y: datasets.close[i] * 1.02} : null).filter(d => d);
+
+            // Dài hạn
+            charts.longTerm = new Chart(document.getElementById('longTermChart'), {
+                type: 'line', data: { labels: labels, datasets: [
+                    { label: 'Giá đóng cửa', data: datasets.close, borderColor: '#3b82f6', borderWidth: 2, pointRadius: 0 },
+                    { label: 'SMA 50', data: datasets.SMA_50, borderColor: '#f97316', borderWidth: 1, pointRadius: 0, borderDash: [5, 5] },
+                    { type: 'scatter', label: 'AI Mua', data: buySignals, backgroundColor: '#22c55e', pointStyle: 'triangle', radius: 6, rotation: 0 },
+                    { type: 'scatter', label: 'AI Bán', data: sellSignals, backgroundColor: '#ef4444', pointStyle: 'triangle', radius: 6, rotation: 180 }
+                ]},
+                options: { plugins: { title: { display: true, text: 'Xu Hướng Dài Hạn và Tín hiệu AI Giao Dịch (Ngày)', color: '#fff' } } }
+            });
+
+            // Hiệu suất
+            const firstValidStockClose = datasets.close.find(p => p !== null);
+            const firstValidIndexClose = datasets.vnindex_close.find(p => p !== null);
+            const normalizedStock = datasets.close.map(p => p ? (p / firstValidStockClose) * 100 : null);
+            const normalizedIndex = datasets.vnindex_close.map(p => p ? (p / firstValidIndexClose) * 100 : null);
+
+            charts.performance = new Chart(document.getElementById('performanceChart'), {
+                type: 'line', data: { labels: labels, datasets: [
+                    { label: `Hiệu suất ${symbol}`, data: normalizedStock, borderColor: '#38bdf8', borderWidth: 2, pointRadius: 0 },
+                    { label: 'Hiệu suất VN-Index', data: normalizedIndex, borderColor: '#e2e8f0', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] }
+                ]},
+                options: { plugins: { title: { display: true, text: 'So Sánh Hiệu Suất Tương Đối với VN-Index', color: '#fff' } } }
+            });
+
+            // RSI, MACD, Volume... tương tự
+             charts.rsi = new Chart(document.getElementById('rsiChart'), { type: 'line', data: { labels: labels, datasets: [{ label: 'RSI (14)', data: datasets.RSI_14, borderColor: '#a855f7', borderWidth: 1.5, pointRadius: 0 }] }, options: { plugins: { title: { display: true, text: 'Chỉ số RSI (Ngày)', color: '#fff' } } }});
+             charts.macd = new Chart(document.getElementById('macdChart'), { type: 'bar', data: { labels: labels, datasets: [ { label: 'Histogram', data: datasets.MACDh_12_26_9, backgroundColor: (c) => c.raw >= 0 ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)'}, { type: 'line', label: 'MACD', data: datasets.MACD_12_26_9, borderColor: '#14b8a6', borderWidth: 1.5, pointRadius: 0 }, { type: 'line', label: 'Signal', data: datasets.MACDs_12_26_9, borderColor: '#f43f5e', borderWidth: 1, pointRadius: 0, borderDash: [5, 5] }, ]}, options: { plugins: { title: { display: true, text: 'Chỉ số MACD (Ngày)', color: '#fff' } } }});
+             charts.volume = new Chart(document.getElementById('volumeChart'), { type: 'bar', data: { labels: labels, datasets: [{ label: 'Khối lượng', data: datasets.volume, backgroundColor: 'rgba(107, 114, 128, 0.5)' }] }, options: { plugins: { title: { display: true, text: 'Khối lượng Giao dịch (Ngày)', color: '#fff' } } }});
+
+            // Ngắn hạn
+            const shortTermLabels = labels.slice(-60);
+            const shortTermData = Object.fromEntries(Object.keys(datasets).map(key => [key, datasets[key].slice(-60)]));
+            const shortTermBuySignals = shortTermLabels.map((l, i) => shortTermData.AI_Signal[i] === 1 ? {x: l, y: shortTermData.close[i] * 0.99} : null).filter(d => d);
+            const shortTermSellSignals = shortTermLabels.map((l, i) => shortTermData.AI_Signal[i] === -1 ? {x: l, y: shortTermData.close[i] * 1.01} : null).filter(d => d);
+            charts.shortTerm = new Chart(document.getElementById('shortTermChart'), {
+                type: 'line', data: { labels: shortTermLabels, datasets: [
+                    { label: 'Giá (60 ngày)', data: shortTermData.close, borderColor: '#008B8B', borderWidth: 2, pointRadius: 2 },
+                    { label: 'SMA 20', data: shortTermData.SMA_20, borderColor: '#FF00FF', borderWidth: 1, pointRadius: 0, borderDash: [5, 5] },
+                    { type: 'scatter', label: 'AI Mua', data: shortTermBuySignals, backgroundColor: '#22c55e', pointStyle: 'triangle', radius: 8 },
+                    { type: 'scatter', label: 'AI Bán', data: shortTermSellSignals, backgroundColor: '#ef4444', pointStyle: 'triangle', radius: 8, rotation: 180 }
+                ]},
+                options: { plugins: { title: { display: true, text: 'Diễn biến 60 ngày gần nhất và Tín hiệu', color: '#fff' } } }
+            });
+        }
+    </script>
+</body>
+</html>
