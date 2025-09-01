@@ -2,9 +2,10 @@ pandas
 pandas-ta
 vnstock
 numpy==1.26.4
+scikit-learn
 xgboost
 statsmodels
 Flask
 Flask-Cors
 gunicorn
-setuptools
+setuptools<81
