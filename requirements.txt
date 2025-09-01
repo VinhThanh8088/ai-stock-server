@@ -7,3 +7,4 @@ statsmodels
 Flask
 Flask-Cors
 gunicorn
+setuptools
