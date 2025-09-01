@@ -1,7 +1,7 @@
 pandas
 pandas-ta
 vnstock
-numpy
+numpy==1.26.4
 xgboost
 statsmodels
 Flask
